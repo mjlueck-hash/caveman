@@ -230,6 +230,69 @@ class ModeTrackerTests(unittest.TestCase):
         self.send("ordinary prompt")
         self.assertIsNone(self.flag_value(), "nothing should resurrect the mode")
 
+    # ── #574: back off when another compression plugin is also active ───
+
+    def write_settings(self, installed_plugins=None, permissions=None):
+        settings = {}
+        if installed_plugins is not None:
+            settings["installed_plugins"] = installed_plugins
+        if permissions is not None:
+            settings["permissions"] = permissions
+        (self.claude_dir / "settings.json").write_text(
+            json.dumps(settings), encoding="utf-8"
+        )
+
+    def test_full_reinforcement_with_no_other_compression_plugin(self):
+        self.flag.write_text("full", encoding="utf-8")
+        r = self.send("ordinary prompt")
+        self.assertIn("Drop articles", r.stdout)
+
+    def test_reduced_reinforcement_when_ponytail_installed(self):
+        self.write_settings(installed_plugins={"ponytail": {"version": "1.0"}})
+        self.flag.write_text("full", encoding="utf-8")
+        r = self.send("ordinary prompt")
+        self.assertIn("reduced injection", r.stdout)
+        self.assertNotIn("Drop articles", r.stdout)
+
+    def test_reduced_reinforcement_detected_via_permissions_key(self):
+        # PR #577's own detection covered both installed_plugins and a
+        # plugin-scoped permissions key (e.g. "grill-me@grill-me").
+        self.write_settings(permissions={"grill-me@grill-me": True})
+        self.flag.write_text("full", encoding="utf-8")
+        r = self.send("ordinary prompt")
+        self.assertIn("reduced injection", r.stdout)
+
+    def test_unrelated_plugin_does_not_reduce_reinforcement(self):
+        self.write_settings(installed_plugins={"some-other-tool": {}})
+        self.flag.write_text("full", encoding="utf-8")
+        r = self.send("ordinary prompt")
+        self.assertIn("Drop articles", r.stdout)
+
+    def test_malformed_settings_json_does_not_crash_or_reduce(self):
+        (self.claude_dir / "settings.json").write_text(
+            "{not valid json", encoding="utf-8"
+        )
+        self.flag.write_text("full", encoding="utf-8")
+        r = self.send("ordinary prompt")
+        self.assertIn("Drop articles", r.stdout)
+
+    def test_unreadable_settings_json_does_not_crash_or_reduce(self):
+        # A directory at the settings path raises EISDIR on read, exercising
+        # the outer catch rather than the JSON.parse fallback above.
+        (self.claude_dir / "settings.json").mkdir()
+        self.flag.write_text("full", encoding="utf-8")
+        r = self.send("ordinary prompt")
+        self.assertIn("Drop articles", r.stdout)
+
+    def test_ruleset_reinjection_on_switch_is_unaffected_by_conflict(self):
+        # The SessionStart ruleset re-delivery on a mid-session level switch
+        # (#975) must still fire even when the per-turn reminder is reduced.
+        self.write_settings(installed_plugins={"ponytail": {}})
+        self.flag.write_text("lite", encoding="utf-8")
+        r = self.send("/caveman ultra")
+        self.assertIn("CAVEMAN MODE ACTIVE", r.stdout)
+        self.assertIn("reduced injection", r.stdout)
+
 
 class SessionScopedModeTests(unittest.TestCase):
     """Per-session state: two Claude Code windows must not share a mode.
