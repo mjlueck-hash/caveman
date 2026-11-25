@@ -25,10 +25,10 @@ Caveman makes AI coding agents respond in compressed caveman-style prose while p
 
 This repo is source of truth for Caveman skills, Engine, and MV3 directive
 extension. Agent SDK + initializer work belongs in
-`/Users/julb/Desktop/GitHub/caveman-agent-sdk`
-(`JuliusBrussee/caveman-agent-sdk`). Browse driver/MCP/benchmark/plugin work
-belongs in `/Users/julb/Desktop/GitHub/caveman-browse`
-(`JuliusBrussee/caveman-browse`). Matching `packages/agent/`,
+`JuliusBrussee/caveman-agent-sdk`
+(not cloned on this machine). Browse driver/MCP/benchmark/plugin work
+belongs in `JuliusBrussee/caveman-browse`
+(not cloned on this machine). Matching `packages/agent/`,
 `packages/create-caveman-agent/`, and `browse/` directories here are
 historical/consumer copies; edit only for pinned integration, migration/removal,
 or an explicitly requested cross-repo sync.
